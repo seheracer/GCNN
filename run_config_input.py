@@ -13,6 +13,7 @@ from data_utils.dataset_descriptors import (
     AtomFeatures,
     Dataset,
 )
+from utils.uq import prediction_interval
 
 
 def run_normal_terminal_input():
@@ -238,6 +239,15 @@ def run_normal_config_file():
     torch.save(
         model.state_dict(),
         "./logs/" + model_with_config_name + "/" + model_with_config_name + ".pk",
+    )
+
+
+    prediction_interval(
+        model,
+        train_loader,
+        val_loader,
+        test_loader,
+        config
     )
 
 

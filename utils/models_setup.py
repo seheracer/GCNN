@@ -22,9 +22,12 @@ def generate_model(model_type: str, input_dim: int, dataset: [Data], config: dic
 
     elif model_type == "PNN":
         deg = torch.zeros(config["max_num_node_neighbours"] + 1, dtype=torch.long)
+        if dataset[0].edge_index[1].is_cuda:   #needed for creating prediction intervals
+            deg = deg.to(device)
         for data in dataset:
             d = degree(data.edge_index[1], num_nodes=data.num_nodes, dtype=torch.long)
             deg += torch.bincount(d, minlength=deg.numel())
+            
         model = PNNStack(
             deg=deg,
             input_dim=input_dim,
