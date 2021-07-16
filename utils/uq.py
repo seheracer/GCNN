@@ -61,7 +61,7 @@ def compute_pcip(
     for data in loader:
         data.to(device)
         result_down = model(data) - model_down(data)*c_down
-        result_up = model(data) - model_up(data)*c_up
+        result_up = model(data) + model_up(data)*c_up
         covered += ((result_down <= data.y) & (data.y <= result_up)).sum()
         
     print('COVERED IN PI:', covered, 'IN A TOTAL OF', len(loader.dataset), 'PCIP:', covered/(len(loader.dataset)))
@@ -151,8 +151,10 @@ def prediction_interval(
     f0 -= num_outlier
     f1 -= num_outlier
 
+    print('init, f0: {}, f1: {}, c0: {}, c1: {}'.format(f0, f1, c_up0, c_up1))
+
     iter = 0
-    while iter <= n_iter and f0 != 0 and f1 != 0:
+    while iter <= n_iter and f0*f1 < 0:
 
         c_up2 = (c_up0 + c_up1)/2.0
 
@@ -161,6 +163,7 @@ def prediction_interval(
             data.to(device)
             f2 += (data.y >= model(data) + c_up2 * model_up(data)).sum()
         f2 -= num_outlier
+        print('{}, f0: {}, f1: {}, f2: {}, c0: {}, c1: {}, c2: {}'.format(iter, f0, f1, f2, c_up0, c_up1, c_up2))
 
         if f2 == 0: 
             break
@@ -170,7 +173,6 @@ def prediction_interval(
         else:
             c_up1 = c_up2
             f1 = f2
-        print('{}, f0: {}, f1: {}, f2: {}'.format(iter, f0, f1, f2))
         iter += 1
     c_up = c_up2
 
@@ -182,22 +184,25 @@ def prediction_interval(
     f1 = 0.0
     for data in train_loader:
         data.to(device)
-        f0 += (data.y >= model(data) + c_down0 * model_down(data)).sum()
-        f1 += (data.y >= model(data) + c_down1 * model_down(data)).sum()
+        f0 += (data.y <= model(data) - c_down0 * model_down(data)).sum()
+        f1 += (data.y <= model(data) - c_down1 * model_down(data)).sum()
 
     f0 -= num_outlier
     f1 -= num_outlier
 
+    print('init, f0: {}, f1: {}, c0: {}, c1: {}'.format(f0, f1, c_up0, c_up1))
+
     iter = 0
-    while iter <= n_iter and f0 != 0 and f1 != 0:
+    while iter <= n_iter and f0*f1 < 0:
 
         c_down2 = (c_down0 + c_down1)/2.0
 
         f2 = 0.0
         for data in train_loader:
             data.to(device)
-            f2 += (data.y >= model(data) + c_down2 * model_down(data)).sum()
+            f2 += (data.y <= model(data) - c_down2 * model_down(data)).sum()
         f2 -= num_outlier
+        print('{}, f0: {}, f1: {}, f2: {}, c0: {}, c1: {}, c2: {}'.format(iter, f0, f1, f2, c_down0, c_down1, c_down2))
 
         if f2 == 0: 
             break
@@ -207,10 +212,11 @@ def prediction_interval(
         else:
             c_down1 = c_down2
             f1 = f2
-        print('{}, f0: {}, f1: {}, f2: {}'.format(iter, f0, f1, f2))
         iter += 1
     c_down = c_down2
 
 
+    compute_pcip(model, model_up, model_down, c_up, c_down, train_loader)
+    compute_pcip(model, model_up, model_down, c_up, c_down, val_loader)
     compute_pcip(model, model_up, model_down, c_up, c_down, test_loader)
     
